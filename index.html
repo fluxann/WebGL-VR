@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Control Task</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/three.js/build/ar-threex.js"></script>
+    <script src="./Torus.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const errorNode = document.getElementById('errors');
+            try {
+                // create scene and camera
+                var scene = new THREE.Scene();
+                var camera = new THREE.Camera();
+                scene.add(camera);
+
+                // add light to scene
+                var light = new THREE.AmbientLight(0xffffff, 0.8);
+                scene.add(light);
+                var directionalLight = new THREE.DirectionalLight(0xffffff, 0.5);
+                directionalLight.position.set(1, 1, 1);
+                scene.add(directionalLight);
+
+                // Create the renderer and add it to the DOM
+                var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                document.getElementById('ar-container').appendChild(renderer.domElement);
+
+                var arSource = new THREEx.ArToolkitSource({ sourceType: 'webcam' });
+
+                // Handle resizing of the renderer and AR elements
+                function onResize() {
+                    arToolkitSource.onResizeElement()
+                    arToolkitSource.copyElementSizeTo(renderer.domElement)
+                    if (arToolkitContext.arController !== null) {
+                        arToolkitSource.copyElementSizeTo(arToolkitContext.arController.canvas)
+                    }
+                }
+
+                // Start AR source and set up resize listeners
+                arSource.init(function onReady() {
+                    onResize();
+                });
+                window.addEventListener('resize', function () { onResize(); });
+                window.addEventListener('orientationchange', function () { setTimeout(onResize, 500); });
+
+                // Initialize AR.js context with camera parameters
+                var arContext = new THREEx.ArToolkitContext({
+                    cameraParametersUrl: './configuration/camParameters.dat',
+                    detectionMode: 'mono'
+                });
+
+                // Set camera projection matrix after AR context is ready
+                arContext.init(function onCompleted() {
+                    camera.projectionMatrix.copy(arContext.getProjectionMatrix());
+                });
+
+                // Create a group for objects that will be attached to the marker
+                var markerRoot = new THREE.Group();
+                scene.add(markerRoot);
+
+                // Set up marker controls for a custom pattern marker
+                var markerControls = new THREEx.ArMarkerControls(arContext, markerRoot, {
+                    type: 'pattern',
+                    patternUrl: './configuration/marker.patt',
+                });
+
+                // Create your custom Torus object and add it to the marker group
+                var surface = new Torus();
+                var mesh = surface.getMesh();
+                markerRoot.add(mesh);
+
+                let t = 0;
+                // Main animation loop: updates AR context and animates the mesh
+                function animate() {
+                    requestAnimationFrame(animate);
+                    if (arSource.ready) arContext.update(arSource.domElement);
+                    mesh.rotation.y += 0.02;
+                    mesh.rotation.x = Math.sin(t) * 0.2;
+                    mesh.scale.setScalar(1 + 0.2 * Math.sin(t * 3));
+
+                    t += 0.02;
+
+                    renderer.render(scene, camera);
+                }
+                animate();
+            } catch (error) {
+                errorNode.innerHTML += `<p style="color:red">${error.message}</p>`;
+            }
+        });
+    </script>
+</head>
+
+<body style="margin:0; overflow:hidden;">
+    <div id="ar-container"></div>
+    <p id="errors"></p>
+</body>
+
+</html>
